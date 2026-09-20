@@ -40,7 +40,7 @@ class OrElseProvider<T> extends AbstractMinimalProvider<T> {
     }
 
     @Override
-    public ValueProducer getProducer() {
+    protected ValueProducer calculateOwnProducer() {
         try (EvaluationScopeContext context = openScope()) {
             return new OrElseValueProducer(context, left, right);
         }

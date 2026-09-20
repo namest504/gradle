@@ -24,6 +24,7 @@ import org.gradle.api.internal.lambdas.SerializableLambdas.SerializableSupplier;
 import org.gradle.api.provider.PresentProvider;
 import org.gradle.api.provider.Provider;
 import org.gradle.internal.Cast;
+import org.gradle.internal.state.ModelObject;
 import org.gradle.internal.DisplayName;
 import org.jspecify.annotations.Nullable;
 
@@ -161,7 +162,7 @@ public class Providers {
         }
 
         @Override
-        public ValueProducer getProducer() {
+        protected ValueProducer calculateOwnProducer() {
             if (value != null) {
                 return ValueProducer.noProducer();
             }
@@ -265,6 +266,11 @@ public class Providers {
         public NoValueProvider(Value<? extends T> value) {
             assert value.isMissing();
             this.value = value;
+        }
+
+        @Override
+        public void attachProducer(ModelObject owner) {
+            // Shared singleton with no value: nothing is produced, so there is nothing to attach to.
         }
 
         @Override

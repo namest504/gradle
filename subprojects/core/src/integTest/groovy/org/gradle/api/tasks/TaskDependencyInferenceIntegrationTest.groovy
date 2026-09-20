@@ -1120,4 +1120,136 @@ The following types/formats are supported:
         result.assertTasksScheduled(":a", ":b", ":c")
         file("out.txt").text == "a1=22,a2=25,b=10"
     }
+
+    def providerOutputTask() {
+        buildFile << """
+            class ProviderOutputTask extends DefaultTask {
+                @Internal
+                final DirectoryProperty outputDir = project.objects.directoryProperty()
+                private final Provider<RegularFile> output = outputDir.map { it.file("file.txt") }
+                @OutputFile
+                Provider<RegularFile> getOutput() { output }
+                @TaskAction
+                def go() {
+                    output.get().asFile.text = "1"
+                }
+            }
+        """
+    }
+
+
+    @Issue("https://github.com/gradle/gradle/issues/25645")
+    def "dependency declared using #description of a Provider-typed output implies dependency on task"() {
+        providerOutputTask()
+        taskTypeWithInputFileCollection()
+        buildFile << """
+            def a = tasks.register("a", ProviderOutputTask) {
+                outputDir = layout.buildDirectory
+            }
+            tasks.register("b", InputFilesTask) {
+                inFiles.from($expression)
+                outFile = file("out.txt")
+            }
+        """
+
+        when:
+        run("b")
+
+        then:
+        result.assertTasksScheduled(":a", ":b")
+        file("out.txt").text == "1"
+
+        where:
+        description               | expression
+        "flat map task provider"  | 'a.flatMap { it.output }'
+        "direct reference"        | 'a.get().output'
+        "mapped output"           | 'a.get().output.map { it }'
+    }
+
+
+    @Issue("https://github.com/gradle/gradle/issues/25645")
+    def "dependency declared using flat map task provider of a #description held in a final field implies dependency on task"() {
+        taskTypeWithInputFileCollection()
+        buildFile << """
+            class FinalFieldOutputTask extends DefaultTask {
+                @Internal
+                final DirectoryProperty outputDir = project.objects.directoryProperty()
+                @OutputFile
+                final Provider<RegularFile> output = outputDir.map { it.file("file.txt") }
+                @OutputFiles
+                final ConfigurableFileCollection outs = project.files(outputDir.file("other.txt"))
+                @TaskAction
+                def go() {
+                    output.get().asFile.text = "1"
+                    outs.each { it.text = "1" }
+                }
+            }
+            def a = tasks.register("a", FinalFieldOutputTask) {
+                outputDir = layout.buildDirectory
+            }
+            tasks.register("b", InputFilesTask) {
+                inFiles.from($expression)
+                outFile = file("out.txt")
+            }
+        """
+
+        when:
+        run("b")
+
+        then:
+        result.assertTasksScheduled(":a", ":b")
+        file("out.txt").text == "1"
+
+        where:
+        description                   | expression
+        "Provider"                    | 'a.flatMap { it.output }'
+        "ConfigurableFileCollection"  | 'a.flatMap { it.outs.elements }'
+    }
+
+    @Issue("https://github.com/gradle/gradle/issues/25645")
+    def "flat map and map of a Kotlin val Provider output both imply dependency on task"() {
+        buildKotlinFile << """
+            import javax.inject.Inject
+
+            abstract class MyTask @Inject constructor(objectFactory: ObjectFactory) : DefaultTask() {
+                @get:Internal
+                val someDirectory = objectFactory.directoryProperty()
+
+                @get:OutputFile
+                val myFile = someDirectory.map { d -> d.file("file") }
+
+                @TaskAction
+                fun execute() {
+                    myFile.get().asFile.writeText("coucou")
+                }
+            }
+
+            val t1Provider = tasks.register<MyTask>("t1") {
+                someDirectory.set(layout.buildDirectory)
+            }
+            val someDir = layout.buildDirectory.dir("someDir")
+
+            tasks.register<Sync>("t2") {
+                from(t1Provider.flatMap { it.myFile })
+                into(someDir)
+            }
+            tasks.register<Sync>("t3") {
+                from(t1Provider.map { it.myFile.get() })
+                into(someDir)
+            }
+        """
+
+        when:
+        run("t2")
+
+        then:
+        result.assertTasksScheduled(":t1", ":t2")
+        file("build/someDir/file").text == "coucou"
+
+        when:
+        run("t3")
+
+        then:
+        result.assertTasksScheduled(":t1", ":t3")
+    }
 }

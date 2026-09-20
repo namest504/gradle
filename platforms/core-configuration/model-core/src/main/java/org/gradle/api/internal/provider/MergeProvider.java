@@ -105,7 +105,7 @@ public class MergeProvider<R> extends AbstractMinimalProvider<List<R>> {
     }
 
     @Override
-    public ValueProducer getProducer() {
+    protected ValueProducer calculateOwnProducer() {
         ImmutableList.Builder<ValueProducer> producers = ImmutableList.builderWithExpectedSize(items.size());
         for (Provider<R> item : items) {
             producers.add(Providers.internal(item).getProducer());

@@ -216,7 +216,7 @@ public class DefaultValueSourceProviderFactory implements ValueSourceProviderFac
         }
 
         @Override
-        public ValueProducer getProducer() {
+        protected ValueProducer calculateOwnProducer() {
             return ValueProducer.externalValue();
         }
 

@@ -72,7 +72,7 @@ public class ProviderTestUtil {
         }
 
         @Override
-        public ValueProducer getProducer() {
+        protected ValueProducer calculateOwnProducer() {
             if (producer != null) {
                 return ValueProducer.task(producer);
             } else {

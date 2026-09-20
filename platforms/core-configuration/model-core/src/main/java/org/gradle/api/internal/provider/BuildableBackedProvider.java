@@ -47,7 +47,7 @@ public class BuildableBackedProvider<T> extends AbstractProviderWithValue<T> {
     }
 
     @Override
-    public ValueProducer getProducer() {
+    protected ValueProducer calculateOwnProducer() {
         // not a lambda for readability purposes.
         //noinspection Convert2Lambda
         return new ValueProducer() {

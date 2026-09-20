@@ -42,7 +42,7 @@ abstract class AbstractCollectingSupplier<COLLECTOR extends ValueSupplier, TYPE>
     }
 
     @Override
-    public ValueProducer getProducer() {
+    protected ValueProducer calculateOwnProducer() {
         return new ValueProducer() {
             @Override
             public void visitProducerTasks(Action<? super Task> visitor) {

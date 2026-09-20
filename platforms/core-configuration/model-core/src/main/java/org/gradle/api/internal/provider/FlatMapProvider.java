@@ -77,7 +77,7 @@ public class FlatMapProvider<S, T> extends AbstractMinimalProvider<S> {
     }
 
     @Override
-    public ValueProducer getProducer() {
+    protected ValueProducer calculateOwnProducer() {
         try (EvaluationScopeContext context = openScope()) {
             return backingProvider(context, ValueConsumer.IgnoreUnsafeRead).getProducer();
         }

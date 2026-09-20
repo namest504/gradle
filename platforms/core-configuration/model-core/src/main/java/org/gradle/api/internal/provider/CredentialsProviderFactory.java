@@ -209,9 +209,9 @@ public class CredentialsProviderFactory implements TaskExecutionGraphListener {
         }
 
         @Override
-        public ValueProducer getProducer() {
+        protected ValueProducer calculateOwnProducer() {
             calculatePresence(ValueConsumer.IgnoreUnsafeRead);
-            return super.getProducer();
+            return super.calculateOwnProducer();
         }
 
         @Override

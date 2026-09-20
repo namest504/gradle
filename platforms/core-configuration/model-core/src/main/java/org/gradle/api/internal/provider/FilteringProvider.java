@@ -45,7 +45,7 @@ public class FilteringProvider<T> extends AbstractMinimalProvider<T> {
     }
 
     @Override
-    public ValueProducer getProducer() {
+    protected ValueProducer calculateOwnProducer() {
         try (EvaluationScopeContext ignored = openScope()) {
             return provider.getProducer();
         }

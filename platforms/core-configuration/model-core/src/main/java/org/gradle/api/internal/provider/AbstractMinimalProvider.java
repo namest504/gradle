@@ -16,6 +16,7 @@
 
 package org.gradle.api.internal.provider;
 
+import org.gradle.api.Task;
 import org.gradle.api.Transformer;
 import org.gradle.api.internal.tasks.TaskDependencyResolveContext;
 import org.gradle.api.provider.Provider;
@@ -27,13 +28,17 @@ import org.gradle.internal.evaluation.EvaluationContext;
 import org.gradle.internal.evaluation.EvaluationScopeContext;
 import org.gradle.internal.logging.text.TreeFormatter;
 import org.gradle.internal.state.Managed;
+import org.gradle.internal.state.ModelObject;
 import org.jspecify.annotations.Nullable;
 
 /**
  * A partial {@link Provider} implementation. Subclasses must implement {@link ProviderInternal#getType()} and {@link AbstractMinimalProvider#calculateOwnValue(ValueConsumer)}.
  */
-public abstract class AbstractMinimalProvider<T> implements ProviderInternal<T>, Managed {
+public abstract class AbstractMinimalProvider<T> implements ProviderInternal<T>, Managed, ProducerAware {
     private static final DisplayName DEFAULT_DISPLAY_NAME = Describables.of("this provider");
+
+    @Nullable
+    private ModelObject producer;
 
     @Override
     public <S> ProviderInternal<S> map(final Transformer<? extends @Nullable S, ? super T> transformer) {
@@ -132,7 +137,45 @@ public abstract class AbstractMinimalProvider<T> implements ProviderInternal<T>,
     }
 
     @Override
-    public ValueProducer getProducer() {
+    public void attachProducer(ModelObject owner) {
+        OutputProperties.assertCanAttachProducer(producer, owner, getDisplayName());
+        producer = owner;
+    }
+
+    /**
+     * The model object this provider has been declared as an output of, if any.
+     */
+    @Nullable
+    protected final ModelObject getProducerObject() {
+        return producer;
+    }
+
+    /**
+     * The task this provider has been declared as an output of, if any.
+     */
+    @Nullable
+    protected final Task getProducerTask() {
+        return OutputProperties.producerTaskOf(producer, getDisplayName());
+    }
+
+    /**
+     * When this provider has been declared as a task output, that task is the producer of the value
+     * and its contents. Otherwise the producer is derived from the inputs of this provider,
+     * see {@link #calculateOwnProducer()}.
+     */
+    @Override
+    public final ValueProducer getProducer() {
+        Task task = getProducerTask();
+        if (task != null) {
+            return ValueProducer.task(task);
+        }
+        return calculateOwnProducer();
+    }
+
+    /**
+     * Calculates the producer of this provider's value from its inputs, ignoring any attached producer task.
+     */
+    protected ValueProducer calculateOwnProducer() {
         return ValueProducer.unknown();
     }
 

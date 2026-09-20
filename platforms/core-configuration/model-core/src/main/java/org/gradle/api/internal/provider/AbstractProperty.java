@@ -16,7 +16,6 @@
 
 package org.gradle.api.internal.provider;
 
-import org.gradle.api.Task;
 import org.gradle.api.provider.SupportsConvention;
 import org.gradle.internal.Describables;
 import org.gradle.internal.DisplayName;
@@ -47,7 +46,6 @@ public abstract class AbstractProperty<T, S extends ValueSupplier> extends Abstr
     private static final DisplayName DEFAULT_DISPLAY_NAME = Describables.of("this property");
     private static final DisplayName DEFAULT_VALIDATION_DISPLAY_NAME = Describables.of("a property");
 
-    private ModelObject producer;
     private DisplayName displayName;
     private ValueState<S> state;
     private S value;
@@ -123,12 +121,6 @@ public abstract class AbstractProperty<T, S extends ValueSupplier> extends Abstr
             return DEFAULT_VALIDATION_DISPLAY_NAME;
         }
         return displayName;
-    }
-
-    @Override
-    public void attachProducer(ModelObject owner) {
-        OutputProperties.assertCanAttachProducer(producer, owner, getDisplayName());
-        producer = owner;
     }
 
     protected final S getSupplier(EvaluationScopeContext ignored) {
@@ -218,20 +210,15 @@ public abstract class AbstractProperty<T, S extends ValueSupplier> extends Abstr
     }
 
     @Override
-    public ValueProducer getProducer() {
-        Task task = getProducerTask();
-        if (task != null) {
-            return ValueProducer.task(task);
-        } else {
-            try (EvaluationScopeContext context = openScope()) {
-                return getSupplier(context).getProducer();
-            }
+    protected ValueProducer calculateOwnProducer() {
+        try (EvaluationScopeContext context = openScope()) {
+            return getSupplier(context).getProducer();
         }
     }
 
     @Override
     public void finalizeValue() {
-        if (state.shouldFinalize(this.getDisplayName(), producer)) {
+        if (state.shouldFinalize(this.getDisplayName(), getProducerObject())) {
             try (EvaluationScopeContext context = openScope()) {
                 finalizeNow(context, ValueConsumer.IgnoreUnsafeRead);
             }
@@ -285,7 +272,7 @@ public abstract class AbstractProperty<T, S extends ValueSupplier> extends Abstr
      * Call prior to reading the value of this property.
      */
     protected void beforeRead(EvaluationScopeContext context, ValueConsumer consumer) {
-        beforeRead(context, producer, consumer);
+        beforeRead(context, getProducerObject(), consumer);
     }
 
     protected void beforeReadNoProducer(EvaluationScopeContext context, ValueConsumer consumer) {
@@ -391,11 +378,6 @@ public abstract class AbstractProperty<T, S extends ValueSupplier> extends Abstr
         state.beforeMutate(this.getDisplayName());
     }
 
-    @Nullable
-    private Task getProducerTask() {
-        return OutputProperties.producerTaskOf(producer, getDisplayName());
-    }
-
     @Contextual
     public static class PropertyQueryException extends RuntimeException {
         public PropertyQueryException(String message, Throwable cause) {
@@ -430,7 +412,7 @@ public abstract class AbstractProperty<T, S extends ValueSupplier> extends Abstr
         private final S copiedValue = value;
 
         @Override
-        public ValueProducer getProducer() {
+        protected ValueProducer calculateOwnProducer() {
             try (EvaluationScopeContext ignored = openScope()) {
                 return copiedValue.getProducer();
             }

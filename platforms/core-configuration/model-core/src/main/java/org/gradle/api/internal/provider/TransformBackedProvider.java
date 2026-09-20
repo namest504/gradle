@@ -54,7 +54,7 @@ public class TransformBackedProvider<OUT, IN> extends AbstractMinimalProvider<OU
     }
 
     @Override
-    public ValueProducer getProducer() {
+    protected ValueProducer calculateOwnProducer() {
         try (EvaluationScopeContext ignored = openScope()) {
             return provider.getProducer();
         }

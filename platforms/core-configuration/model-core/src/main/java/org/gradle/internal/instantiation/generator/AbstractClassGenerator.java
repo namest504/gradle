@@ -413,9 +413,11 @@ abstract class AbstractClassGenerator implements ClassGenerator {
             // but that would break existing code that relies on lazy attachment of properties.
             return property.getBackingField() == null || !property.getMainGetter().method.isAnnotationPresent(Generated.class);
         }
-        // Other Property should be eagerly attached, as they are not overridable.
-        // Other non-Property properties cannot be eagerly attached for backwards compatibility reasons.
-        return !hasPropertyType(property);
+        // Everything else has a final getter, so the owner (and the output role, if any) can only be attached eagerly.
+        // Provider and ConfigurableFileCollection values are attached eagerly, so that e.g. a Kotlin
+        // `val output: Provider<RegularFile>` declared as a task output learns about its producer.
+        // Other @Nested values are not attached, for backwards compatibility.
+        return !Provider.class.isAssignableFrom(property.getType()) && !isConfigurableFileCollectionType(property.getType());
     }
 
     private static boolean isAttachProperty(PropertyMetadata property) {

@@ -740,7 +740,7 @@ public class AsmBackedClassGenerator extends AbstractClassGenerator {
 
             privateSyntheticMethod(INIT_ATTACH_METHOD, RETURN_VOID, methodVisitor -> new LocalMethodVisitorScope(methodVisitor) {{
                 for (AttachedProperty attached : propertiesToAttachAtConstruction) {
-                    attachProperty(attached);
+                    attachPropertyIfPossible(attached);
                 }
                 _RETURN();
             }});
@@ -1243,9 +1243,9 @@ public class AsmBackedClassGenerator extends AbstractClassGenerator {
             }
 
             /**
-             * Same as {@link #attachProperty(AttachedProperty)}, but tolerates a getter that fails.
+             * Attaches the owner (and role, if any) to the value of the given property, tolerating a getter that fails.
              *
-             * <p>The getter is invoked only to obtain the property so its owner can be re-attached, so an exception
+             * <p>The getter is invoked only to obtain the property so its owner can be attached, so an exception
              * here is not reported: the property is simply left without an owner. A later direct call to the
              * getter still fails as usual.</p>
              */
@@ -1277,12 +1277,6 @@ public class AsmBackedClassGenerator extends AbstractClassGenerator {
                 _LDC(attached.property.getName());
                 _INVOKESTATIC(MANAGED_OBJECT_FACTORY_TYPE, "ignoreAttachOwnerFailure", RETURN_VOID_FROM_EXCEPTION_MODEL_OBJECT_STRING);
                 visitLabel(done);
-            }
-
-            protected void attachProperty(AttachedProperty attached) {
-                // ManagedObjectFactory.attachOwner(get<prop>(), this, <property-name>))
-                invokeGetter(attached.property);
-                attachOwnerToValueOnStack(attached);
             }
 
             private void invokeGetter(PropertyMetadata property) {

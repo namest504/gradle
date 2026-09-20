@@ -41,7 +41,7 @@ class OrElseFixedValueProvider<T> extends AbstractProviderWithValue<T> {
     }
 
     @Override
-    public ValueProducer getProducer() {
+    protected ValueProducer calculateOwnProducer() {
         try (EvaluationScopeContext context = openScope()) {
             return new OrElseValueProducer(context, provider);
         }
