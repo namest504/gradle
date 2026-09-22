@@ -41,6 +41,7 @@ abstract class MavenConversionDynamicPomIntegrationTest extends AbstractInitInte
          * */
         m2.generateUserSettingsFile(m2.mavenRepo())
         using m2
+        mirrorMavenCentralForPomConversion()
 
         targetDir.file("src/main/java/Foo.java") << """
             import org.apache.commons.lang.StringUtils;

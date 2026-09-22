@@ -21,7 +21,9 @@ import org.gradle.api.internal.tasks.testing.report.generic.GenericTestExecution
 import org.gradle.api.tasks.testing.TestResult
 import org.gradle.buildinit.plugins.fixtures.ScriptDslFixture
 import org.gradle.buildinit.plugins.internal.modifiers.BuildInitDsl
+import org.gradle.api.artifacts.ArtifactRepositoryContainer
 import org.gradle.integtests.fixtures.AbstractIntegrationSpec
+import org.gradle.integtests.fixtures.RepoScriptBlockUtil
 import org.gradle.integtests.fixtures.executer.ExecutionResult
 import org.gradle.test.fixtures.file.TestFile
 
@@ -45,6 +47,33 @@ abstract class AbstractInitIntegrationSpec extends AbstractIntegrationSpec {
         """
         initializeIntoTestDir()
         executer.withRepositoryMirrors()
+    }
+
+    /**
+     * Routes the Maven conversion libraries that the {@code :init} task resolves through the
+     * repository mirror.
+     *
+     * <p>Those are resolved by a {@code ProjectInternal.DetachedResolver} created in
+     * {@code PomProjectInitDescriptor}, whose repositories the init script installed by
+     * {@link org.gradle.integtests.fixtures.executer.GradleExecuter#withRepositoryMirrors()}
+     * never sees. A Maven settings mirror does reach them, because
+     * {@code DefaultMavenArtifactRepository} consults it for every repository it creates.</p>
+     *
+     * <p>Callers must already be {@code using m2}.</p>
+     */
+    protected void mirrorMavenCentralForPomConversion() {
+        def mirrorUrl = RepoScriptBlockUtil.mavenCentralMirrorUrl
+        // Without a mirror configured, mirrorUrl is Maven Central itself. Writing that as a
+        // <mirrorOf>central</mirrorOf> would be a no-op for resolution, but it would still switch
+        // on the incubating feature - emitting its warning and making settings.xml a configuration
+        // cache input - so leave local runs alone entirely.
+        if (!RepoScriptBlockUtil.mirrorEnabled || mirrorUrl == ArtifactRepositoryContainer.MAVEN_CENTRAL_URL) {
+            return
+        }
+        m2.withCentralMirror(mirrorUrl)
+        executer.beforeExecute {
+            it.withArgument("-Dorg.gradle.mirror.maven.settings=true")
+        }
     }
 
     void initializeIntoTestDir() {
@@ -124,6 +153,10 @@ abstract class AbstractInitIntegrationSpec extends AbstractIntegrationSpec {
     }
 
     protected TestFile pom() {
+        // Writing a pom.xml is what makes :init run the Maven conversion, so this is the one
+        // place every such test passes through
+        using m2
+        mirrorMavenCentralForPomConversion()
         targetDir.file("pom.xml") << """
       <project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
